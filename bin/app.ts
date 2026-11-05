@@ -4,7 +4,7 @@ import { WorkflowStack } from '../lib/workflow-stack';
 
 const app = new cdk.App();
 const account = process.env.CDK_DEFAULT_ACCOUNT;
-const region = process.env.CDK_DEFAULT_REGION ?? 'us-west-2';
+const region = process.env.DEPLOY_REGION ?? process.env.CDK_DEFAULT_REGION ?? 'us-west-2';
 
 // GitHub Actions can synthesize an environment-bound template without AWS
 // credentials by supplying a placeholder account. Real deployments must use
