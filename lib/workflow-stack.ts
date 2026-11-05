@@ -1,6 +1,5 @@
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
-import * as iam from 'aws-cdk-lib/aws-iam';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
@@ -52,6 +51,12 @@ export class WorkflowStack extends cdk.Stack {
       interval: cdk.Duration.seconds(2),
       backoffRate: 2,
       maxAttempts: 3
+    });
+    invokeGreeting.addCatch(new sfn.Fail(this, 'WorkflowFailed', {
+      cause: 'The configuration retrieval task failed after retries.'
+    }), {
+      errors: ['States.ALL'],
+      resultPath: '$.error'
     });
 
     const workflow = new sfn.StateMachine(this, 'GreetingWorkflow', {

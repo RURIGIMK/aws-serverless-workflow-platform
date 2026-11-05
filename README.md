@@ -13,7 +13,7 @@ The deployment is multi-account-ready: the application stage is a CDK Stage with
 
 ```mermaid
 flowchart LR
-  G[GitHub main branch] --> P[ AWS CodePipeline ]
+  G[GitHub main branch] --> P[AWS CodePipeline]
   P --> B[CodeBuild: install, test, synth]
   B --> D[CDK deployment stage]
   D --> S[SSM Parameter Store]
@@ -59,7 +59,7 @@ Clone the repository and install the root dependencies:
 ```bash
 git clone https://github.com/RURIGIMK/aws-serverless-workflow-platform.git
 cd aws-serverless-workflow-platform
-npm ci
+npm install
 npm run build
 npm test -- --runInBand
 ```
@@ -186,7 +186,7 @@ Screenshots must show actual results from the deployed account. Do not use mocku
 - **Connection is not Available:** return to CodeConnections, complete the GitHub app installation and wait for the status to become Available.
 - **CDK bootstrap required:** bootstrap the account/region used by the pipeline before deploying the pipeline stack.
 - **AccessDenied for SSM:** inspect the Lambda execution role and verify the parameter ARN matches `/app/config/greeting` in the deployed region/account.
-- **Pipeline synth fails:** inspect the CodeBuild synth logs. The pipeline installs root dependencies, runs TypeScript compilation and tests, then runs `cdk synth`.
+- **Pipeline synth fails:** inspect the CodeBuild synth logs. The pipeline installs root dependencies, runs TypeScript compilation and tests, installs the Lambda dependency, then runs `cdk synth`.
 - **Lambda cannot find the SDK:** confirm the Lambda asset contains the dependency installed from `lambda/greeting/package.json`. Re-run `npm install --omit=dev` in that directory and push the resulting lockfile.
 
 ## Submission
