@@ -1,71 +1,76 @@
 # AWS Serverless Workflow Platform
 
 **Capstone:** Multi-Account, Automated, and Governed Cloud Platform  
-**Stack:** AWS CDK (TypeScript), AWS CodePipeline, CodeBuild, Step Functions, Lambda, Systems Manager Parameter Store and CloudWatch.
+**Technology:** AWS CDK (TypeScript), CodePipeline, CodeBuild, Step Functions, Lambda, Systems Manager Parameter Store and CloudWatch
 
-## Objective
+## Overview
 
-This project provisions a serverless workflow platform using AWS CDK. Step Functions orchestrates the workflow. A Lambda function retrieves a greeting from SSM Parameter Store and writes a structured event to CloudWatch Logs. AWS CodePipeline watches the GitHub `main` branch, runs CodeBuild validation, and deploys the CDK application when changes are pushed.
+This project deploys a serverless workflow with AWS CDK. AWS Step Functions coordinates the execution. A Node.js 22 Lambda function reads a greeting from AWS Systems Manager (SSM) Parameter Store and writes a structured log event to CloudWatch.
 
-The lab deployment uses the single AWS Academy account available to the student. The infrastructure is defined as code and can be deployed into another account when a separately provisioned account and appropriate permissions are available. This repository does not claim a completed second-account deployment.
+The deployment uses the AWS Academy account provided for the lab. That environment exposed one account, so the implementation and evidence demonstrate deployment within that account.
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-  G[GitHub main branch] --> P[AWS CodePipeline]
-  P --> B[CodeBuild: install, build, test, synth]
+  G[GitHub main branch] --> P[CodePipeline]
+  P --> B[CodeBuild: build, test, synth]
   B --> D[CodeBuild: CDK deploy]
-  D --> S[SSM Parameter Store]
-  D --> F[Step Functions]
+  D --> A[CDK application stack]
+  A --> S[SSM Parameter Store]
+  A --> F[Step Functions]
   F --> L[Lambda]
   L --> S
   L --> C[CloudWatch Logs]
 ```
 
-The pipeline is hosted in `eu-west-2` and deploys the application stack in `us-west-2`.
+The pipeline runs in **Europe (London), `eu-west-2`**. It deploys the application stack in **US West (Oregon), `us-west-2`**.
 
-## Main deliverables
+## Implementation
 
-- Infrastructure as Code using AWS CDK and TypeScript.
-- GitHub-connected CodePipeline with Source, Build and Deploy stages.
-- CodeBuild validation and CDK deployment build specifications.
-- Step Functions workflow orchestration with retry and failure handling.
-- Lambda serverless compute.
-- SSM Parameter Store configuration management.
-- Least-privilege IAM access to the greeting parameter.
-- CloudWatch execution and application logs.
-- GitHub Actions validation on pushes and pull requests.
+### Infrastructure as Code
 
-## Repository layout
+The CDK stack in `lib/workflow-stack.ts` defines:
+
+- The SSM String parameter `/app/config/greeting`.
+- The `serverless-workflow-greeting` Lambda function using Node.js 22.
+- A Lambda execution role with read access scoped to the greeting parameter.
+- The `serverless-greeting-workflow` Standard Step Functions state machine.
+- CloudWatch log groups with seven-day retention.
+
+### Workflow
+
+The state machine runs an initial Pass state followed by the Lambda task. The task retries supported Lambda and timeout errors, then catches remaining failures and routes them to a Fail state.
+
+The Lambda reads `/app/config/greeting` at runtime using the AWS SDK for JavaScript. It logs the parameter name and retrieved value and returns the result to Step Functions.
+
+### CI/CD
+
+The CodePipeline source stage monitors this repository's `main` branch through AWS CodeConnections. A push to `main` starts the pipeline:
+
+1. **Source:** retrieves the latest GitHub revision.
+2. **Build:** installs dependencies, compiles TypeScript, runs infrastructure tests and synthesizes the CDK template using `buildspec.yml`.
+3. **Deploy:** runs `deploy-buildspec.yml` to deploy `ServerlessWorkflowStack` to `us-west-2`.
+
+The deployment build specification sets `DEPLOY_REGION=us-west-2` so the application is deployed to Oregon regardless of the pipeline's region.
+
+GitHub Actions also builds, tests and synthesizes the CDK application on pushes and pull requests to `main`.
+
+## Repository structure
 
 - `bin/app.ts`: CDK application entry point.
-- `lib/workflow-stack.ts`: SSM parameter, Lambda, IAM permissions and Step Functions.
-- `lambda/greeting/`: Lambda handler and AWS SDK dependency.
-- `test/`: infrastructure assertions.
-- `buildspec.yml`: CodeBuild validation, tests and CDK synthesis.
-- `deploy-buildspec.yml`: CodeBuild CDK deployment.
-- `.github/workflows/ci.yml`: GitHub Actions validation workflow.
-- `docs/`: deployment notes and evidence screenshots.
+- `lib/workflow-stack.ts`: application infrastructure.
+- `lambda/greeting/`: Lambda handler and runtime dependency.
+- `test/`: CDK infrastructure tests.
+- `buildspec.yml`: CodeBuild validation and synthesis.
+- `deploy-buildspec.yml`: CodeBuild deployment.
+- `.github/workflows/ci.yml`: GitHub Actions validation.
+- `docs/deployment.md`: deployment and verification reference.
+- `screenshots/`: execution evidence.
 
-## Deployment and CI/CD
+## Verification
 
-The CodePipeline source stage monitors the `main` branch of this repository through AWS CodeConnections. A push to `main` starts the pipeline:
-
-1. **Source:** retrieves the latest repository revision.
-2. **Build:** installs dependencies, compiles TypeScript, runs infrastructure tests and synthesizes the CDK template.
-3. **Deploy:** runs `cdk deploy ServerlessWorkflowStack` from CodeBuild, targeting `us-west-2`.
-
-The pipeline itself is hosted in `eu-west-2`. The application stack remains in `us-west-2`. The deployment build specification explicitly sets `CDK_DEFAULT_REGION=us-west-2` to preserve this target.
-
-For an initial/manual application deployment, see [docs/deployment.md](docs/deployment.md).
-
-## Verify the application
-
-1. Confirm Step Functions state machine `serverless-greeting-workflow` exists.
-2. Confirm Lambda function `serverless-workflow-greeting` exists.
-3. Confirm SSM parameter `/app/config/greeting` exists.
-4. Start an execution with:
+The deployed workflow can be started from Step Functions with the following input:
 
 ```json
 {
@@ -73,32 +78,26 @@ For an initial/manual application deployment, see [docs/deployment.md](docs/depl
 }
 ```
 
-5. Confirm the execution succeeds.
-6. Inspect `/aws/lambda/serverless-workflow-greeting` for the `SSM_PARAMETER_READ` event.
+A successful execution returns the parameter name and greeting. The Lambda log group is `/aws/lambda/serverless-workflow-greeting`; successful retrieval is recorded as an `SSM_PARAMETER_READ` event.
 
-## Security and governance
+## Security and operations
 
-- Lambda's SSM read permission is scoped to the single greeting parameter.
-- The greeting is non-sensitive configuration, not a secret.
-- The workflow uses a Standard Step Functions state machine with logging and tracing.
-- CloudWatch log groups have one-week retention.
-- Pipeline and application changes are version-controlled.
-- The available lab account is used for deployment. A second-account deployment is not claimed unless it is actually provisioned and tested.
+- The Lambda role has parameter-scoped SSM read access.
+- The greeting is a non-sensitive String parameter; credentials and secrets are not stored in it.
+- Step Functions execution logging and tracing are enabled.
+- Lambda and workflow log groups retain events for seven days.
+- Infrastructure and application changes are version-controlled.
 
-## Cost control
+## Evidence
 
-The project does not create a VPC, NAT Gateway, load balancer or always-on compute. AWS service usage may still incur charges. Review account allowances and remove the lab stack after assessment if instructed.
+### CodePipeline
 
-## Evidence screenshots
+![Successful CodePipeline execution](screenshots/01-codepipeline-success.png)
 
-Add the actual AWS/GitHub screenshots to `docs/evidence/`:
+### Step Functions
 
-- `01-codepipeline-success.png`: successful CodePipeline execution showing Source, Build and Deploy.
-- `02-step-functions-success.png`: successful Step Functions execution graph.
-- `03-lambda-ssm-cloudwatch-logs.png`: Lambda log stream showing the SSM retrieval event.
+![Successful Step Functions execution](screenshots/02-step-functions-success.png)
 
-Do not use mockups or fabricated evidence.
+### Lambda and Parameter Store
 
-## Submission
-
-https://github.com/RURIGIMK/aws-serverless-workflow-platform
+![CloudWatch log showing SSM parameter retrieval](screenshots/03-lambda-ssm-cloudwatch-logs.png)
