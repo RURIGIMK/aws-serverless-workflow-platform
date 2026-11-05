@@ -2,7 +2,7 @@
   "name": "aws-serverless-workflow-platform",
   "version": "1.0.0",
   "private": true,
-  "description": "Governed, multi-account-ready serverless workflow platform built with AWS CDK.",
+  "description": "Serverless workflow platform built with AWS CDK.",
   "scripts": {
     "build": "tsc --noEmit",
     "test": "jest",
@@ -10,7 +10,7 @@
     "cdk": "cdk",
     "synth": "cdk synth",
     "diff": "cdk diff",
-    "deploy:pipeline": "cdk deploy WorkflowPipelineStack"
+    "deploy": "cdk deploy ServerlessWorkflowStack"
   },
   "devDependencies": {
     "@types/jest": "29.5.14",
