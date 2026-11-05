@@ -1,7 +1,7 @@
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import * as pipelines from 'aws-cdk-lib/pipelines';
-import { CodeStarConnectionsSourceCredentials } from 'aws-cdk-lib/aws-codepipeline';
+import { WorkflowStack } from './workflow-stack';
 
 export interface WorkflowPipelineStackProps extends cdk.StackProps {
   connectionArn: string;
@@ -25,16 +25,16 @@ export class WorkflowPipelineStack extends cdk.Stack {
     const synth = new pipelines.ShellStep('Synth', {
       input: source,
       commands: [
-        'npm ci',
+        'npm install',
         'npm run build',
         'npm test -- --runInBand',
+        'cd lambda/greeting && npm install --omit=dev && cd ../..',
         'npx cdk synth'
       ]
     });
 
     const pipeline = new pipelines.CodePipeline(this, 'Pipeline', {
       pipelineName: 'serverless-workflow-platform',
-      pipelineType: cdk.aws_codepipeline.PipelineType.V2,
       synth,
       selfMutation: true,
       crossAccountKeys: true,
@@ -54,7 +54,6 @@ export class WorkflowPipelineStack extends cdk.Stack {
 class WorkflowApplicationStage extends cdk.Stage {
   constructor(scope: Construct, id: string, props: cdk.StageProps) {
     super(scope, id, props);
-    const { WorkflowStack } = require('./workflow-stack') as typeof import('./workflow-stack');
     new WorkflowStack(this, 'WorkflowStack', {
       env: props.env,
       description: 'Serverless workflow, SSM configuration, and least-privilege execution roles.'
