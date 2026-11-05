@@ -9,5 +9,5 @@ phases:
       - cd lambda/greeting && npm install --omit=dev && cd ../..
   build:
     commands:
-      - export CDK_DEFAULT_REGION=us-west-2
+      - export DEPLOY_REGION=us-west-2
       - npx cdk deploy ServerlessWorkflowStack --require-approval never
