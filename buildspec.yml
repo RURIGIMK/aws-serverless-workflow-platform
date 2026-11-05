@@ -1,0 +1,18 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      nodejs: 22
+    commands:
+      - npm install
+      - cd lambda/greeting && npm install --omit=dev && cd ../..
+  build:
+    commands:
+      - npm run build
+      - npm test -- --runInBand
+      - npx cdk synth
+
+artifacts:
+  files:
+    - README.md
